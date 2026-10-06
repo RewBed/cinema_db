@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: cinema-postgres
+    restart: unless-stopped
+    command: postgres -c timezone=${TZ:-Europe/Moscow}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cinema}
+      POSTGRES_USER: ${POSTGRES_USER:-cinema}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${HOST_PORT:-5432}:5432"
+    volumes:
+      - cinema_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - cinema-internal
+
+volumes:
+  cinema_postgres_data:
+
+networks:
+  cinema-internal:
+    external: true
+    name: ${POSTGRES_NETWORK_NAME:-api_default}

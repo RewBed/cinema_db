@@ -1,0 +1,40 @@
+name: Deploy PostgreSQL
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-postgres
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Swarm configuration
+        env:
+          POSTGRES_PASSWORD: validation-only
+        run: docker stack config --compose-file deploy/stack.yml > /dev/null
+
+      - name: Deploy to Portainer
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: |
+          if [ -z "$PORTAINER_WEBHOOK_URL" ]; then
+            echo "PORTAINER_WEBHOOK_URL secret is required." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 60 \
+            --request POST "$PORTAINER_WEBHOOK_URL"

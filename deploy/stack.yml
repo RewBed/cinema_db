@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    stop_grace_period: 60s
+    command: postgres -c timezone=${TZ:-Europe/Moscow}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cinema}
+      POSTGRES_USER: ${POSTGRES_USER:-cinema}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - target: 5432
+        published: ${HOST_PORT:-4932}
+        protocol: tcp
+        mode: host
+    volumes:
+      - cinema_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - cinema-db-network
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.cinema.postgres == primary
+      restart_policy:
+        condition: any
+        delay: 5s
+      update_config:
+        order: stop-first
+      rollback_config:
+        order: stop-first
+
+volumes:
+  cinema_postgres_data:
+
+networks:
+  cinema-db-network:
+    external: true
