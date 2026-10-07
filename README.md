@@ -28,11 +28,11 @@ docker compose up -d postgres
 ```bash
 docker node update --label-add cinema.postgres=primary NODE_NAME
 docker network create --driver overlay --attachable cinema-db-network
-docker stack deploy -c deploy/stack.yml cinema-db
+docker stack deploy -c deploy/stack.yml cinema_db
 ```
 
 Один экземпляр закреплён за узлом, обновление выполняется `stop-first`.
-Swarm создаёт volume `cinema-db_cinema_postgres_data` на этом узле.
+Swarm создаёт volume `cinema_db_cinema_postgres_data` на этом узле.
 Имя стека сохраняйте при обновлениях; метку не переносите на узел без данных.
 Порт публикуется только на узле PostgreSQL (`mode: host`), номер задаётся через
 `HOST_PORT` (по умолчанию `4932`). Для NAT настройте проброс TCP:
@@ -40,7 +40,7 @@ Swarm создаёт volume `cinema-db_cinema_postgres_data` на этом уз�
 Адрес привязки в Swarm через `ports` не задаётся: публикация идёт на всех
 интерфейсах узла; доступ регулируется firewall и правилами NAT.
 API подключите к `cinema-db-network`, хост базы
-в `DATABASE_URL` — `cinema-db_postgres`, порт — `5432`.
+в `DATABASE_URL` — `cinema_db_cinema-postgres`, порт — `5432`.
 
 ## Автодеплой
 
@@ -51,18 +51,32 @@ Portainer при push в `main` или ручном запуске GitHub Action
 Secrets как `PORTAINER_WEBHOOK_URL`. Ответ webhook подтверждает приём запроса,
 завершение обновления проверяйте в Portainer. Дамп автоматически не восстанавливается.
 
-## Дамп
+## Быстрое восстановление из бэкапа
 
-Восстановите дамп в новую пустую базу до подключения API. На узле базы найдите
-контейнер, скопируйте в него `cinema.dump` и выполните:
+Для уже запущенного стека `cinema_db` с пустой базой, до подключения API.
+Замените `USER`, `SERVER` и `ДАТА_БЭКАПА`. `SERVER` — узел, где работает PostgreSQL.
 
-```bash
-docker ps --filter label=com.docker.swarm.service.name=cinema-db_postgres
-docker cp cinema.dump CONTAINER_ID:/tmp/cinema.dump
-docker exec CONTAINER_ID pg_restore -U cinema -d cinema --no-owner --no-privileges --single-transaction /tmp/cinema.dump
+Из корня проекта в PowerShell:
+
+```powershell
+scp .\backups\ДАТА_БЭКАПА\cinema.dump USER@SERVER:cinema.dump
+ssh USER@SERVER
 ```
 
-Проверьте данные, затем примените миграции API. Старый production остаётся
+На сервере (имя сервиса — `ИМЯ_СТЕКА_ИМЯ_СЕРВИСА`; для текущего развёртывания
+это `cinema_db_cinema-postgres`). Используйте завершённый дамп, не `.partial`:
+
+```bash
+db_container=$(sudo docker ps -q --filter label=com.docker.swarm.service.name=cinema_db_cinema-postgres)
+echo "PostgreSQL container: $db_container"
+test -n "$db_container" && sudo docker exec -i "$db_container" pg_restore -U cinema -d cinema --no-owner --no-privileges --single-transaction < ~/cinema.dump
+sudo docker exec "$db_container" psql -U cinema -d cinema -c "SELECT count(*) FROM movies; SELECT count(*) FROM users; ANALYZE;"
+```
+
+Дамп читается напрямую из файла на сервере, без копирования в контейнер.
+При ошибке восстановления транзакция откатывается; после успешного завершения
+проверьте данные и примените миграции API. `globals.sql` здесь не нужен.
+Старый production остаётся
 нетронутым. Репликация пока не настроена. В Swarm имя контейнера меняется:
 старые скрипты с `cinema-prod-postgres` требуют адаптации. Не удаляйте volumes
 и не увеличивайте `replicas` для создания репликации.
