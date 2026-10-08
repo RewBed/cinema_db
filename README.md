@@ -53,10 +53,24 @@ Secrets как `PORTAINER_WEBHOOK_URL`. Ответ webhook подтвержда�
 
 ## Быстрое восстановление из бэкапа
 
-Для уже запущенного стека `cinema_db` с пустой базой, до подключения API.
-Замените `USER`, `SERVER` и `ДАТА_БЭКАПА`. `SERVER` — узел, где работает PostgreSQL.
+Восстанавливайте завершённый `cinema.dump` в пустую базу, до запуска API.
+Замените `ДАТА_БЭКАПА`; команды ниже используют пользователя и базу `cinema`.
 
-Из корня проекта в PowerShell:
+### Локально на Windows (PowerShell)
+
+Запустите локальный Compose по разделу «Разработка». Затем из корня проекта:
+
+```powershell
+.\app_sources\database\restore-db.ps1 -DumpPath .\backups\ДАТА_БЭКАПА\cinema.dump
+```
+
+Временная копия дампа удаляется из контейнера; исходный файл и volume сохраняются.
+После проверки данных примените миграции API.
+
+### Восстановление на сервере (Linux)
+
+Для запущенного стека `cinema_db`. Из PowerShell скопируйте дамп и подключитесь
+к узлу PostgreSQL (замените `USER` и `SERVER`):
 
 ```powershell
 scp .\backups\ДАТА_БЭКАПА\cinema.dump USER@SERVER:cinema.dump
