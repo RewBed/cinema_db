@@ -2,3 +2,7 @@
 deploy/.env
 *.dump
 *.tar
+/APP
+/backups/
+/.venv-db-backup/
+__pycache__/
