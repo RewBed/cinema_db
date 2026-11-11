@@ -26,20 +26,20 @@ docker compose up -d postgres
 `deploy/.env.example`. Для CLI предварительно задайте их в окружении:
 `docker stack deploy` самостоятельно не читает `.env`.
 
-На manager назначьте метки узлу с данными PostgreSQL. Метку
-`cinema_local_data=true` ставьте только на этот узел. Для нового кластера
-также создайте общую сеть:
+На manager назначьте метку `cinema_db=true` узлу с данными PostgreSQL.
+Для нового кластера также создайте общую сеть:
 
 ```bash
-docker node update --label-add cinema_db=true --label-add cinema_local_data=true NODE_NAME
+docker node update --label-add cinema_db=true NODE_NAME
 docker network create --driver overlay --attachable cinema-db-network
 docker stack deploy -c deploy/stack.yml cinema_db
 ```
 
-Один экземпляр закреплён за узлом, обновление выполняется `stop-first`.
-Swarm создаёт volume `cinema_db_cinema_postgres_data` на этом узле.
-Имя стека сохраняйте при обновлениях. Узлам для будущих реплик можно назначить
-`cinema_db=true`. Реплики и переключение primary настраиваются отдельно.
+Один экземпляр PostgreSQL может запуститься на любом узле с `cinema_db=true`.
+Том `cinema_db_cinema_postgres_data` локален для каждого узла. При запуске
+на новом узле с пустым томом PostgreSQL создаст новую базу. До настройки
+репликации и переключения primary ставьте метку только на узел с текущими
+данными. При обновлениях сохраняйте имя стека.
 Порт публикуется только на узле PostgreSQL (`mode: host`), номер задаётся через
 `HOST_PORT` (по умолчанию `4932`). Для NAT настройте проброс TCP:
 `внешний порт → IP узла PostgreSQL:HOST_PORT`.
