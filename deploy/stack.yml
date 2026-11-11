@@ -26,7 +26,8 @@ services:
     deploy:
       placement:
         constraints:
-          - node.hostname != rewbed
+          - node.labels.cinema_db == true
+          - node.labels.cinema_local_data == true
 
 volumes:
   cinema_postgres_data:
